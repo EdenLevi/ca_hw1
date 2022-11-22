@@ -28,7 +28,7 @@ ifeq ($(SRC_BP),bp.c)
 bp_main: $(OBJ)
 	$(CC)  -o $@ $(OBJ) -lm
 
-bp.o: bp.c
+bp.o: bp.cpp
 	$(CC) -c $(CFLAGS)  -o $@ $^ -lm
 
 else

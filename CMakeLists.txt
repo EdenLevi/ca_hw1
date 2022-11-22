@@ -3,4 +3,4 @@ project(ca_hw1)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(ca_hw1 main.cpp)
+add_executable(ca_hw1 bp_main.cpp bp_api.h bp.cpp)
