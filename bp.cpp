@@ -97,6 +97,12 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 }
 
 void BP_GetStats(SIM_stats *curStats) {
+    curStats->br_num = 1; /// number of 'BP_update' calls
+    curStats->flush_num = 1; /// number of 'BP_predict' that caused a flush
+
+    /// theoretical memory size required for predictor in bits (including valid bits)
+    curStats->size = Predictor::btbSize * (1 + Predictor::tagSize + 32 + Predictor::historySize + 2*(2^Predictor::historySize));
+    /// memory_size = entries * (valid_bit + tag_size + target_size + history_Size + 2*2^history_size)
 
     delete[] Predictor::predictionTable;
     delete[] Predictor::BTB;
