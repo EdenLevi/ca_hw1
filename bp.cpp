@@ -61,7 +61,11 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
 bool BP_predict(uint32_t pc, uint32_t *dst) {
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
-    unsigned tag = pc >> (32-Predictor::tagSize);
+    unsigned tag = pc >> (32-Predictor::tagSize); /// shift by 2 + log2(btb_size)
+
+    /// LSB <-------------------------------> MSB
+    /// pc = 00          log2(btb_size)   tagSize
+    /// pc = alignment   btb_index        tag
 
     /// at this point index = correct BTB line
     if(Predictor::BTB[index].tag == tag) {
@@ -82,7 +86,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     else {
 
         // drisa
-        Predictor::BTB[index].tag = tag;
+        /// Predictor::BTB[index].tag = tag;
         /// GOOD QUESTION: do we need to lidros this? if so how do we get the actual address to jump?
 
         *dst = (pc+4);
@@ -93,7 +97,32 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     return false;
 }
 
+/// still need to take care of global history table and cases where tag is not equal,
+/// meaning local history needs to be deleted
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
+    unsigned index = pc >> 2;
+    index = index & (Predictor::btbSize - 1); // masking the pc
+    unsigned tag = pc >> (32-Predictor::tagSize);
+
+    if(Predictor::BTB[index].tag == tag) {
+        unsigned curr_history = Predictor::BTB[index].history;
+        unsigned masked_history = ((curr_history << 1) & 15);
+        Predictor::BTB[index].history = taken ? (masked_history | 1) : (masked_history & 0); // set LSB to 1 or 0
+
+        unsigned historyIndex = Predictor::BTB[index].history;
+        unsigned i = index*(!Predictor::isGlobalTable); /// if global there is only one prediction table
+        unsigned j = historyIndex;
+        unsigned n = 2^Predictor::historySize;
+        unsigned fsmIndex = i*n + j;
+        int state = *(Predictor::predictionTable + fsmIndex);
+
+        *(Predictor::predictionTable + fsmIndex) = taken ? min(3, state+1) : max(0, state-1);
+
+
+    }
+    else {
+
+    }
 }
 
 void BP_GetStats(SIM_stats *curStats) {
