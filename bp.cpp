@@ -150,7 +150,7 @@ void BP_GetStats(SIM_stats *curStats) {
     if(!Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// all local
         curStats->size = Predictor::btbSize *(1 + Predictor::tagSize + 32 + Predictor::historySize + 2 * (2 ^ Predictor::historySize));
     }
-    else if(!Predictor::isGlobalTable && Predictor::isGlobalHist) { /// local table, global history
+    else if(!Predictor::isGlobalTable && Predictor::isGlobalHist) { /// local table, global history (ohad says can't happen)
         curStats->size = Predictor::btbSize *(1 + Predictor::tagSize + 32 + 2 * (2 ^ Predictor::historySize)) + Predictor::historySize;
     }
     else if(Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// global table, local history
