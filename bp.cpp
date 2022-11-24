@@ -46,7 +46,7 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
     Predictor::fsmState = fsmState;
     Predictor::isGlobalHist = isGlobalHist;
     Predictor::isGlobalTable = isGlobalTable;
-    Predictor::Shared = Shared;
+    Predictor::Shared = Shared;  /// 0 = not using, 1 = using lsb, 2 = using mid
 
     try {
         Predictor::predictionTable = isGlobalTable ? (new int[2 ^ (historySize)]) : (new int[2 ^
@@ -64,6 +64,7 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
 
 
 /// need to take care of case where history is global ( use it for deciding index )
+/// need to take care of case where using share lsb \ mid
 bool BP_predict(uint32_t pc, uint32_t *dst) {
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
@@ -107,22 +108,22 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
 /// still need to take care of global history table and cases where tag is not equal,
 /// meaning local history needs to be deleted
+
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
     unsigned tag = pc >> (32 - Predictor::tagSize);
-
-    if (Predictor::BTB[index].tag == tag) {
+    if ((Predictor::BTB[index].tag == tag) || (Predictor::isGlobalHist)) {
         if (!Predictor::isGlobalHist) {
             unsigned curr_history = Predictor::BTB[index].history;
-            unsigned masked_history = ((curr_history << 1) & 15);
-            Predictor::BTB[index].history = taken ? (masked_history | 1) : (masked_history & 0); // set LSB to 1 or 0
-        }
+            unsigned masked_history = ((curr_history << 1) & ((2^Predictor::historySize)-1)); ///changed the 2nd term of the & from 15 cause the history size isnt always 4
+            Predictor::BTB[index].history = taken ? (masked_history | 1) : (masked_history & -1); // set LSB to 1 or 0
+        }                                                                                 ///changed it to & -1 from & 0, cause & 0 will zero it all
         else {
             unsigned curr_history = Predictor::globalHistory;
-            unsigned masked_history = ((curr_history << 1) & 15);
-            Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & 0); // set LSB to 1 or 0
-        }
+            unsigned masked_history = ((curr_history << 1) & ((2^Predictor::historySize)-1)); ///changed the 2nd term of the & from 15 cause the history size isnt always 4
+            Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -1); // set LSB to 1 or 0
+        }                                                                                ///changed it to & -1 from & 0, cause & 0 will zero it all
 
         unsigned historyIndex = Predictor::BTB[index].history;
         unsigned i = index * (!Predictor::isGlobalTable); /// if global there is only one prediction table
@@ -134,7 +135,17 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         *(Predictor::predictionTable + fsmIndex) = taken ? min(3, state + 1) : max(0, state - 1);
 
 
-    } else {
+    }
+    /// pc is not in the BTB, and also history isnt global
+    /// so we need to:
+    /// change the tag
+    /// change the target pc                                - done
+    /// zero the history of the BTB line                    - done
+    /// move this BTB line's fsm to default value
+    else {
+
+        Predictor::BTB[index].target =  targetPc; /// initialsing the line
+        Predictor::BTB[index].history = 0;
 
     }
 }
