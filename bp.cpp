@@ -64,7 +64,7 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
 
 
 /// need to take care of case where history is global ( use it for deciding index )
-/// need to take care of case where using share lsb \ mid
+/// need to take care of case where using share lsb \ mid                               - i think its good
 bool BP_predict(uint32_t pc, uint32_t *dst) {
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
@@ -75,8 +75,20 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     /// pc = alignment   btb_index        tag
 
     /// at this point index = correct BTB line
-    if (Predictor::BTB[index].tag == tag) {
+    if ((Predictor::BTB[index].tag == tag) || (Predictor::isGlobalHist)) {
         unsigned historyIndex = Predictor::BTB[index].history;
+
+        /// if there is only one fsm table and using Share, need to use XOR  - not sure if needed when also history is global
+        if ((Predictor::isGlobalTable) && (Predictor::Shared)){
+            ///do XOR magic
+            unsigned XORIndex = pc >> 2;
+            if (Predictor::Shared == 2){
+                XORIndex = XORIndex >> 14;
+            }
+            XORIndex = XORIndex & ((2^Predictor::historySize)-1);
+            historyIndex = Predictor::BTB[index].history ^ XORIndex ;
+        }
+
 
         unsigned i = index * (!Predictor::isGlobalTable); /// if global there is only one prediction table
         unsigned j = historyIndex;
@@ -136,13 +148,14 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
 
     }
-    /// pc is not in the BTB, and also history isnt global
+    /// pc is not in the BTB, and also history is not global
     /// so we need to:
     /// change the tag
     /// change the target pc                                - done
     /// zero the history of the BTB line                    - done
     /// move this BTB line's fsm to default value
     else {
+        unsigned historyIndex = Predictor::BTB[index].history; /// need to add using share option
 
         Predictor::BTB[index].target =  targetPc; /// initialsing the line
         Predictor::BTB[index].history = 0;

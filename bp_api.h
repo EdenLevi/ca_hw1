@@ -15,7 +15,7 @@ extern "C" {
 typedef struct {
     unsigned flush_num;           // Machine flushes
     unsigned br_num;              // Number of branch instructions
-    unsigned size;              // Theoretical allocated BTB and branch predictor size
+    unsigned size;                // Theoretical allocated BTB and branch predictor size
 } SIM_stats;
 
 class Predictor;
