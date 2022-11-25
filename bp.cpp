@@ -25,6 +25,9 @@ public:
     static int *predictionTable;
     static BTB_line *BTB;
     static unsigned globalHistory;
+    static unsigned flush_num;
+    static unsigned br_num;
+    static unsigned size;
 };
 
 unsigned Predictor::btbSize = 0;
@@ -37,6 +40,9 @@ int Predictor::Shared = 0;
 int *Predictor::predictionTable = nullptr;
 BTB_line *Predictor::BTB = nullptr;
 unsigned Predictor::globalHistory = 0;
+unsigned Predictor::flush_num = 0;
+unsigned Predictor::br_num = 0;
+unsigned Predictor::size = 0;
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
             bool isGlobalHist, bool isGlobalTable, int Shared) {
@@ -59,6 +65,24 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
         return -1;
     }
 
+    /// calc memory needed for the data
+    /// theoretical memory size required for predictor in bits (including valid bits)
+    /// memory_size = entries * (valid_bit + tag_size + target_size + history_Size + 2*2^history_size)
+    /// note: need to take into consideration the type of machine (global/local, etc)
+
+    if(!Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// all local
+        Predictor::size = Predictor::btbSize *(1 + Predictor::tagSize + 32 + Predictor::historySize + 2 * (2 ^ Predictor::historySize));
+    }
+    else if(!Predictor::isGlobalTable && Predictor::isGlobalHist) { /// local table, global history (ohad says can't happen)
+        Predictor::size = Predictor::btbSize *(1 + Predictor::tagSize + 32 + 2 * (2 ^ Predictor::historySize)) + Predictor::historySize;
+    }
+    else if(Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// global table, local history
+        Predictor::size = Predictor::btbSize *(1 + Predictor::tagSize + 32 + Predictor::historySize) + 2 * (2 ^ Predictor::historySize);
+    }
+    else { /// all global
+        Predictor::size = Predictor::btbSize *(1 + Predictor::tagSize + 32) + 2 * (2 ^ Predictor::historySize) + Predictor::historySize;
+    }
+
     return 1;
 }
 
@@ -75,10 +99,10 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     /// pc = alignment   btb_index        tag
 
     /// at this point index = correct BTB line
-    if ((Predictor::BTB[index].tag == tag) || (Predictor::isGlobalHist)) {
+    if ((Predictor::BTB[index].tag == tag) || (Predictor::isGlobalHist)) { /// thats a hit
         unsigned historyIndex = Predictor::BTB[index].history;
 
-        /// if there is only one fsm table and using Share, need to use XOR  - not sure if needed when also history is global
+        /// if there is only one fsm table and using Share, need to use XOR
         if ((Predictor::isGlobalTable) && (Predictor::Shared)){
             ///do XOR magic
             unsigned XORIndex = pc >> 2;
@@ -100,31 +124,70 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
         *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
         return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
         ///*(Predictor::predictionTable + index*(2^Predictor::historySize)*(!Predictor::isGlobalTable) + historyIndex);
+    }
 
-    } else {
-
-        // drisa
-        /// Predictor::BTB[index].tag = tag;
-        /// GOOD QUESTION: do we need to lidros this? if so how do we get the actual address to jump?
-
+    /// that is a miss
+    else {
         *dst = (pc + 4);
         return false;
     }
 
-
     return false;
 }
 
-/// note: need to take care of XOR based on input (LSB, MSB, etc)
+
+
+/// note: need to take care of XOR based on input (LSB, MSB, etc) - only when fsm is global - isGlobalTable == 1
 
 
 /// still need to take care of global history table and cases where tag is not equal,
 /// meaning local history needs to be deleted
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
+    Predictor::br_num++;   /// added this for counting branches. need to add a miss counter in this func aswell
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
     unsigned tag = pc >> (32 - Predictor::tagSize);
+
+    /// Global History Global Table
+    if((Predictor::isGlobalHist) && (Predictor::isGlobalTable)){
+        unsigned historyIndex = Predictor::BTB[index].history;
+        if(Predictor::Shared){ /// need to use XOR to get to the fsm
+            unsigned XORIndex = pc >> 2;
+            if (Predictor::Shared == 2){
+                XORIndex = XORIndex >> 14;
+            }
+            XORIndex = XORIndex & ((2^Predictor::historySize)-1);
+            historyIndex = Predictor::BTB[index].history ^ XORIndex ;
+        }
+        /// check for flush
+
+
+
+
+        unsigned curr_history = Predictor::BTB[index].history;
+        unsigned masked_history = ((curr_history << 1) & ((2^Predictor::historySize)-1));     // set LSB to 1 or 0
+        Predictor::BTB[index].history = taken ? (masked_history | 1) : (masked_history & -1); // set LSB to 1 or 0
+
+
+    }
+
+    /// Global History Local Table
+    else if((Predictor::isGlobalHist) && (!Predictor::isGlobalTable)){
+
+    }
+
+    /// Local History Global Table
+    else if((!Predictor::isGlobalHist) && (Predictor::isGlobalTable)){
+
+    }
+
+    /// Local History Local Table
+    else if((!Predictor::isGlobalHist) && (!Predictor::isGlobalTable)){
+
+    }
+
+
     if ((Predictor::BTB[index].tag == tag) || (Predictor::isGlobalHist)) {
         if (!Predictor::isGlobalHist) {
             unsigned curr_history = Predictor::BTB[index].history;
@@ -157,34 +220,25 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
     else {
         unsigned historyIndex = Predictor::BTB[index].history; /// need to add using share option
 
-        Predictor::BTB[index].target =  targetPc; /// initialsing the line
+
+        Predictor::BTB[index].target =  targetPc; /// initializing the line
         Predictor::BTB[index].history = 0;
 
     }
 }
 
+
 void BP_GetStats(SIM_stats *curStats) {
-    curStats->br_num = 1; /// number of 'BP_update' calls
-    curStats->flush_num = 1; /// number of 'BP_predict' that caused a flush
+    curStats->br_num = Predictor::br_num; /// number of 'BP_update' calls
+    curStats->flush_num = Predictor::flush_num; /// number of 'BP_predict' that caused a flush
+    curStats->size = Predictor::size;
 
-    /// theoretical memory size required for predictor in bits (including valid bits)
-    /// memory_size = entries * (valid_bit + tag_size + target_size + history_Size + 2*2^history_size)
-    /// note: need to take into consideration the type of machine (global/local, etc)
+    /// MOVED THE SIZE CALC TO THE INIT FUNC!
 
-    if(!Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// all local
-        curStats->size = Predictor::btbSize *(1 + Predictor::tagSize + 32 + Predictor::historySize + 2 * (2 ^ Predictor::historySize));
-    }
-    else if(!Predictor::isGlobalTable && Predictor::isGlobalHist) { /// local table, global history (ohad says can't happen)
-        curStats->size = Predictor::btbSize *(1 + Predictor::tagSize + 32 + 2 * (2 ^ Predictor::historySize)) + Predictor::historySize;
-    }
-    else if(Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// global table, local history
-        curStats->size = Predictor::btbSize *(1 + Predictor::tagSize + 32 + Predictor::historySize) + 2 * (2 ^ Predictor::historySize);
-    }
-    else { /// all global
-        curStats->size = Predictor::btbSize *(1 + Predictor::tagSize + 32) + 2 * (2 ^ Predictor::historySize) + Predictor::historySize;
-    }
 
-    delete[] Predictor::predictionTable;
-    delete[] Predictor::BTB;
+
+  /// i dont think that this func needs to delete it right now - it can be called couple of time during the run
+//    delete[] Predictor::predictionTable;
+//    delete[] Predictor::BTB;
 }
 
