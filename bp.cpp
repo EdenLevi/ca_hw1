@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include "bp_api.h"
+#include<cmath>
+#include <bitset>
 
 using namespace std;
 
@@ -55,8 +57,13 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
     Predictor::Shared = Shared;  /// 0 = not using, 1 = using lsb, 2 = using mid
 
     try {
-        Predictor::predictionTable = isGlobalTable ? (new int[2 ^ (historySize)]) : (new int[2 ^
-                                                                                             (historySize) * btbSize]);
+        Predictor::predictionTable = isGlobalTable ? (new int(pow(2,historySize))) :
+                                                                        (new int(pow(2,historySize) * btbSize));
+        /// init the fsm to the given default state
+        int maxFsm = isGlobalTable ? (int(pow(2,historySize))) : (int(pow(2,historySize) * btbSize));
+        for(int i = 0; i < maxFsm; i++){
+            *(Predictor::predictionTable + i) = fsmState;
+        }
         Predictor::BTB = new BTB_line[btbSize];
     }
     catch (const std::bad_alloc &e) {
@@ -82,7 +89,7 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
     else { /// all global
         Predictor::size = Predictor::btbSize *(1 + Predictor::tagSize + 32) + 2 * (2 ^ Predictor::historySize) + Predictor::historySize;
     }
-
+        /// need to change 2 ^ x to pow(2,x)
     return 1;
 }
 
@@ -100,7 +107,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
     /// at this point index = correct BTB line
     if ((Predictor::BTB[index].tag == tag) || (Predictor::isGlobalHist)) { /// thats a hit
-        unsigned historyIndex = Predictor::BTB[index].history;
+        unsigned historyIndex = Predictor::BTB[index * (!Predictor::isGlobalHist)].history; /// added here that if globalhistory then btb[0]
 
         /// if there is only one fsm table and using Share, need to use XOR
         if ((Predictor::isGlobalTable) && (Predictor::Shared)){
@@ -110,7 +117,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
                 XORIndex = XORIndex >> 14;
             }
             XORIndex = XORIndex & ((2^Predictor::historySize)-1);
-            historyIndex = Predictor::BTB[index].history ^ XORIndex ;
+            historyIndex = Predictor::BTB[index * (!Predictor::isGlobalHist)].history ^ XORIndex ;
         }
 
 
@@ -151,6 +158,13 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
     /// Global History Global Table
     if((Predictor::isGlobalHist) && (Predictor::isGlobalTable)){
+        /// print the fsm table
+        for(int i = 0; i < int(pow(2,Predictor::historySize)); i++){
+            std::bitset<32> x(*(Predictor::predictionTable + i));
+            cout << x << '\n';
+        }
+
+        /// find the previous fsm
         unsigned historyIndex = Predictor::BTB[index].history;
         if(Predictor::Shared){ /// need to use XOR to get to the fsm
             unsigned XORIndex = pc >> 2;
@@ -158,15 +172,16 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
                 XORIndex = XORIndex >> 14;
             }
             XORIndex = XORIndex & ((2^Predictor::historySize)-1);
-            historyIndex = Predictor::BTB[index].history ^ XORIndex ;
+            historyIndex = Predictor::BTB[0].history ^ XORIndex;
         }
-        /// check for flush
 
-
-
-
-        unsigned curr_history = Predictor::BTB[index].history;
-        unsigned masked_history = ((curr_history << 1) & ((2^Predictor::historySize)-1));     // set LSB to 1 or 0
+        int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
+        if((taken) ^ (state >= 2)){  /// there is a flush if taken (actual behaviour) is different then prediction
+            Predictor::flush_num = Predictor::flush_num + 1;
+        }
+        *(Predictor::predictionTable + historyIndex) = taken ? min(3, state + 1) : max(0, state - 1);
+        unsigned curr_history = Predictor::BTB[historyIndex].history;
+        unsigned masked_history = ((curr_history << 1) & ((int(pow(2,Predictor::historySize))-1)));     // set LSB to 1 or 0
         Predictor::BTB[index].history = taken ? (masked_history | 1) : (masked_history & -1); // set LSB to 1 or 0
 
 
@@ -187,7 +202,8 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
     }
 
-
+    /// saved all of this here, if you want to use it just mark all 4 ifs with a comment
+    /*
     if ((Predictor::BTB[index].tag == tag) || (Predictor::isGlobalHist)) {
         if (!Predictor::isGlobalHist) {
             unsigned curr_history = Predictor::BTB[index].history;
@@ -225,6 +241,8 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         Predictor::BTB[index].history = 0;
 
     }
+     */
+
 }
 
 
