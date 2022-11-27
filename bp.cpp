@@ -176,9 +176,10 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
         if (Predictor::BTB[index].tag == tag) {
             unsigned historyIndex = Predictor::BTB[index].history;
 
-            unsigned prediction = *(Predictor::predictionTable + historyIndex
-                                    + index * int(pow(2, Predictor::historySize)));
-            //    cout <<"the pc is " << pc << " and the prediction is " << prediction << "\n";
+            unsigned prediction = *(Predictor::predictionTable +
+                                    historyIndex +
+                                    index * int(pow(2, Predictor::historySize)));
+
             *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
             return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
         } else {
