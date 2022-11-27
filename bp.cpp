@@ -109,6 +109,14 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
     /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
+        //cout << "Printing BTB" << '\n';
+        for (int i = 0; i < Predictor::btbSize; i++) {
+            std::bitset<32> x(Predictor::BTB[i].tag);
+          //  cout << x << " " << i << '\n';
+        }
+        std::bitset<32> y(tag);
+        //cout << y << " is the tag" << '\n';
+
         if (Predictor::BTB[index].tag == tag) {
             unsigned historyIndex = Predictor::globalHistory;
 
@@ -122,6 +130,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
             }
 
             unsigned prediction = *(Predictor::predictionTable + historyIndex);
+        //    cout <<"the pc is " << pc << " and the prediction is " << prediction << "\n";
             *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
             return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
         }
@@ -200,9 +209,10 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
     /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
         /// print the fsm table
+        //cout << "Printing fsm states!" << '\n';
         for (int i = 0; i < int(pow(2, Predictor::historySize)); i++) {
             std::bitset<32> x(*(Predictor::predictionTable + i));
-            cout << x << '\n';
+        //    cout << x << '\n';
         }
 
         /// find the previous fsm
@@ -215,6 +225,11 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             XORIndex = XORIndex & ((2 ^ Predictor::historySize) - 1);
             historyIndex = Predictor::globalHistory ^ XORIndex;
         }
+
+        /// insert tag and target to the BTB
+        Predictor::BTB[index].tag = tag;
+        Predictor::BTB[index].target = targetPc;
+
 
         int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
         if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
