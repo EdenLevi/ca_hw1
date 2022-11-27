@@ -57,14 +57,13 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
     Predictor::Shared = Shared;  /// 0 = not using, 1 = using lsb, 2 = using mid
 
     try {
-        Predictor::predictionTable = isGlobalTable ? (new int(pow(2, historySize))) :
-                                     (new int(pow(2, historySize) * btbSize));
+        Predictor::predictionTable = isGlobalTable ? (new int[int(pow(2, historySize))]) : (new int[int(
+                pow(2, historySize) * btbSize)]);
         /// init the fsm to the given default state
         int maxFsm = isGlobalTable ? (int(pow(2, historySize))) : (int(pow(2, historySize) * btbSize));
         for (int i = 0; i < maxFsm; i++) {
             *(Predictor::predictionTable + i) = fsmState;
         }
-
 
         Predictor::BTB = new BTB_line[btbSize];
     }
@@ -110,13 +109,6 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
     /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
-        /* //cout << "Printing BTB" << '\n';
-        for (int i = 0; i < Predictor::btbSize; i++) {
-            std::bitset<32> x(Predictor::BTB[i].tag);
-          //  cout << x << " " << i << '\n';
-        }
-        std::bitset<32> y(tag);
-        //cout << y << " is the tag" << '\n'; */
 
         if (Predictor::BTB[index].tag == tag) {
             unsigned historyIndex = Predictor::globalHistory;
@@ -197,45 +189,14 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
 
     /// at this point index = correct BTB line
-    /*if (Predictor::BTB[index].tag == tag) { /// thats a hit
-        unsigned historyIndex = Predictor::BTB[index *(!Predictor::isGlobalHist)].history;
-
-        /// if there is only one fsm table and using Share, need to use XOR
-        if ((Predictor::isGlobalTable) && (Predictor::Shared)) {
-            ///do XOR magic
-            unsigned XORIndex = pc >> 2;
-            if (Predictor::Shared == 2) {
-                XORIndex = XORIndex >> 14;
-            }
-            XORIndex = XORIndex & int(((pow(2, Predictor::historySize)) - 1));
-            historyIndex = Predictor::BTB[index * (!Predictor::isGlobalHist)].history ^ XORIndex;
-        }
-
-
-        unsigned i = index * (!Predictor::isGlobalTable); /// if global there is only one prediction table
-        unsigned j = historyIndex;
-        unsigned n = 2 ^ Predictor::historySize;
-
-        unsigned fsmIndex = i * n + j;
-        unsigned prediction = *(Predictor::predictionTable + fsmIndex);
-
-        *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
-        return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
-    }
-
-        /// that is a miss
-    else {
-        *dst = (pc + 4);
-        return false;
-    }*/
 
     return false;
 }
 
 
-
 /// still need to take care of global history table and cases where tag is not equal,
 /// meaning local history needs to be deleted
+
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
@@ -280,9 +241,9 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
 
         int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
-        /*if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
-            Predictor::flush_num = Predictor::flush_num + 1;
-        }*/
+        //if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+        //Predictor::flush_num = Predictor::flush_num + 1;
+        //}
         *(Predictor::predictionTable + historyIndex) = taken ? min(3, state + 1) : max(0, state - 1);
         unsigned curr_history = Predictor::globalHistory;
         unsigned masked_history = ((curr_history << 1) &
@@ -300,9 +261,9 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         if (Predictor::BTB[index].tag == tag) {
             int state = *(Predictor::predictionTable + historyIndex +
                           index * int(pow(2, Predictor::historySize))); /// this is the predicted behaviour
-            /*if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
-                Predictor::flush_num = Predictor::flush_num + 1;
-            }*/
+            //if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+            //Predictor::flush_num = Predictor::flush_num + 1;
+            //}
 
             *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))) =
                     taken ? min(3, state + 1) : max(0, state - 1);
@@ -342,9 +303,9 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             }
 
             int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
-            if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
-                Predictor::flush_num = Predictor::flush_num + 1;
-            }
+            //if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+                //Predictor::flush_num = Predictor::flush_num + 1;
+            //}
 
             *(Predictor::predictionTable + historyIndex) = taken ? min(3, state + 1) : max(0, state - 1);
             unsigned curr_history = Predictor::BTB[index].history; // its the same as historyIndex
@@ -368,9 +329,9 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             unsigned historyIndex = Predictor::BTB[index].history;
             int state = *(Predictor::predictionTable + historyIndex +
                           index * int(pow(2, Predictor::historySize))); /// this is the predicted behaviour
-            if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
-                Predictor::flush_num = Predictor::flush_num + 1;
-            }
+            //if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+            //Predictor::flush_num = Predictor::flush_num + 1;
+            //}
             *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))) =
                     taken ? min(3, state + 1) : max(0, state - 1);
             unsigned curr_history = Predictor::globalHistory;
@@ -406,7 +367,7 @@ void BP_GetStats(SIM_stats *curStats) {
 
 
     /// i dont think that this func needs to delete it right now - it can be called couple of time during the run
-    //delete[] Predictor::predictionTable;
-    //delete[] Predictor::BTB;
+    delete[] Predictor::predictionTable;
+    delete[] Predictor::BTB;
 }
 
