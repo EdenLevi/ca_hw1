@@ -100,7 +100,9 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
 bool BP_predict(uint32_t pc, uint32_t *dst) {
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
-    unsigned tag = pc >> (32 - Predictor::tagSize); /// shift by 2 + log2(btb_size)
+    //unsigned tag = pc >> (32 - Predictor::tagSize); /// shift by 2 + log2(btb_size)
+    unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
+
 
     /// LSB <-------------------------------> MSB
     /// pc = 00          log2(btb_size)   tagSize
@@ -182,8 +184,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
             *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
             return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
-        }
-        else {
+        } else {
             *dst = (pc + 4);
             return false;
         }
@@ -213,14 +214,15 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
     Predictor::br_num++;   /// added this for counting branches. need to add a miss counter in this func aswell
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
-    unsigned tag = pc >> (32 - Predictor::tagSize);
+    // unsigned tag = pc >> (32 - Predictor::tagSize);
+    unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
 
     int print_flag = 0;
-    if(print_flag){
+    if (print_flag) {
         /// print the fsm
         cout << index << '\n';
         for (int i = 0;
-             i <  ((int(pow(2, Predictor::historySize) + (!Predictor::isGlobalTable) * Predictor::btbSize))); i++) {
+             i < ((int(pow(2, Predictor::historySize) + (!Predictor::isGlobalTable) * Predictor::btbSize))); i++) {
             std::bitset<32> x(*(Predictor::predictionTable + i));
             cout << x << '\n';
         }
@@ -238,13 +240,13 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         /// find the previous fsm
         unsigned historyIndex = Predictor::globalHistory;
         if (Predictor::Shared) { /// need to use XOR to get to the fsm
-        //    cout << Predictor::Shared <<" \n";
+            //    cout << Predictor::Shared <<" \n";
             unsigned XORIndex = pc >> 2;
             if (Predictor::Shared == 2) {
                 XORIndex = XORIndex >> 14;
             }
             XORIndex = XORIndex & int((pow(2, Predictor::historySize)) - 1);
-          //  cout << XORIndex << '\n';
+            //  cout << XORIndex << '\n';
             historyIndex = Predictor::globalHistory ^ XORIndex;
         }
 
