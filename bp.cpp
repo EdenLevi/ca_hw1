@@ -10,8 +10,8 @@ using namespace std;
 
 class BTB_line {
 public:
-    unsigned tag = 0;
-    unsigned target = 0;
+    int tag = -1;
+    int target = -1;
     unsigned history = 0;
 };
 
