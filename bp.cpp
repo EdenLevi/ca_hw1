@@ -247,6 +247,18 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 /// meaning local history needs to be deleted
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
+
+    if(taken) {
+        if(pred_dst != targetPc) {
+            Predictor::flush_num++;
+        }
+    }
+    else {
+        if(pred_dst != (pc + 4)) {
+            Predictor::flush_num++;
+        }
+    }
+
     Predictor::br_num++;   /// added this for counting branches. need to add a miss counter in this func aswell
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
@@ -278,9 +290,9 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
 
         int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
-        if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+        /*if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
             Predictor::flush_num = Predictor::flush_num + 1;
-        }
+        }*/
         *(Predictor::predictionTable + historyIndex) = taken ? min(3, state + 1) : max(0, state - 1);
         unsigned curr_history = Predictor::globalHistory;
         unsigned masked_history = ((curr_history << 1) & ((int(pow(2, Predictor::historySize)) - 1)));     // set LSB to 1 or 0
@@ -296,9 +308,9 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         /// its a hit
         if(Predictor::BTB[index].tag == tag) {
             int state = *(Predictor::predictionTable + historyIndex + index * int(pow(2,Predictor::historySize))); /// this is the predicted behaviour
-            if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+            /*if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
                 Predictor::flush_num = Predictor::flush_num + 1;
-            }
+            }*/
 
             *(Predictor::predictionTable + historyIndex + index * int(pow(2,Predictor::historySize))) =
                                                                           taken ? min(3, state + 1) : max(0, state - 1);
