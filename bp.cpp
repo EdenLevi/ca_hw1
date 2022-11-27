@@ -142,7 +142,19 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
     /// Global History Local Table
     else if ((Predictor::isGlobalHist) && (!Predictor::isGlobalTable)) {
+        if (Predictor::BTB[index].tag == tag) {
+            unsigned historyIndex = Predictor::globalHistory;
 
+            unsigned prediction = *(Predictor::predictionTable + historyIndex
+                                                                    + index * int(pow(2,Predictor::historySize)));
+            //    cout <<"the pc is " << pc << " and the prediction is " << prediction << "\n";
+            *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
+            return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
+        }
+        else {
+            *dst = (pc + 4);
+            return false;
+        }
     }
 
     /// Local History Global Table (probably doesnt exist)
@@ -243,19 +255,88 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
     }
 
-        /// Global History Local Table
+    /// Global History Local Table
     else if ((Predictor::isGlobalHist) && (!Predictor::isGlobalTable)) {
+        unsigned historyIndex = Predictor::globalHistory;
 
+        /// its a hit
+        if(Predictor::BTB[index].tag == tag) {
+            int state = *(Predictor::predictionTable + historyIndex + index * int(pow(2,Predictor::historySize))); /// this is the predicted behaviour
+            if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+                Predictor::flush_num = Predictor::flush_num + 1;
+            }
+
+            *(Predictor::predictionTable + historyIndex + index * int(pow(2,Predictor::historySize))) =
+                                                                          taken ? min(3, state + 1) : max(0, state - 1);
+            unsigned curr_history = Predictor::globalHistory;
+            unsigned masked_history = ((curr_history << 1) & ((int(pow(2, Predictor::historySize)) - 1)));     // set LSB to 1 or 0
+            Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
+        }
+
+        /// its a miss
+        else{
+            /// insert tag and target to the BTB
+            Predictor::BTB[index].tag = tag;
+            Predictor::BTB[index].target = targetPc;
+
+            /// set the proper fsm table to default state IF its a miss
+            int maxFsm = (int(pow(2, Predictor::historySize)));
+            for (int i = index; i < index + maxFsm; i++) {
+                *(Predictor::predictionTable + i) = Predictor::fsmState;
+            }
+        }
     }
 
-        /// Local History Global Table
+    /// Local History Global Table
     else if ((!Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
+        /// its a hit
+        if(Predictor::BTB[index].tag == tag){
+            unsigned historyIndex = Predictor::BTB[index].history;
 
+            if (Predictor::Shared) { /// need to use XOR to get to the fsm
+                unsigned XORIndex = pc >> 2;
+                if (Predictor::Shared == 2) {
+                    XORIndex = XORIndex >> 14;
+                }
+                XORIndex = XORIndex & ((2 ^ Predictor::historySize) - 1);
+                historyIndex = Predictor::globalHistory ^ XORIndex;
+            }
+
+            int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
+            if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+                Predictor::flush_num = Predictor::flush_num + 1;
+            }
+
+            *(Predictor::predictionTable + historyIndex) = taken ? min(3, state + 1) : max(0, state - 1);
+            unsigned curr_history = Predictor::BTB[index].history; // its the same as historyIndex
+            unsigned masked_history = ((curr_history << 1) & ((int(pow(2, Predictor::historySize)) - 1)));  // set LSB to 1 or 0
+            Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
+        }
+
+        /// its a miss
+        else{
+            Predictor::BTB[index].tag = tag;
+            Predictor::BTB[index].target = targetPc;
+            Predictor::BTB[index].history = 0;
+        }
     }
 
-        /// Local History Local Table
+    /// Local History Local Table
     else if ((!Predictor::isGlobalHist) && (!Predictor::isGlobalTable)) {
+        /// its a hit
+        if(Predictor::BTB[index].tag == tag){
+            unsigned historyIndex = Predictor::BTB[index].history;
+            int state = *(Predictor::predictionTable + historyIndex + index * int(pow(2,Predictor::historySize))); /// this is the predicted behaviour
+            if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
+                Predictor::flush_num = Predictor::flush_num + 1;
+            }
+            *(Predictor::predictionTable + historyIndex + index * int(pow(2,Predictor::historySize))) =
+                    taken ? min(3, state + 1) : max(0, state - 1);
+            unsigned curr_history = Predictor::globalHistory;
+            unsigned masked_history = ((curr_history << 1) & ((int(pow(2, Predictor::historySize)) - 1)));     // set LSB to 1 or 0
+            Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
 
+        }
     }
 
     /// saved all of this here, if you want to use it just mark all 4 ifs with a comment
