@@ -372,11 +372,6 @@ void BP_GetStats(SIM_stats *curStats) {
     curStats->flush_num = Predictor::flush_num; /// number of 'BP_predict' that caused a flush
     curStats->size = Predictor::size;
 
-    /// MOVED THE SIZE CALC TO THE INIT FUNC!
-
-
-
-    /// i dont think that this func needs to delete it right now - it can be called couple of time during the run
     delete[] Predictor::predictionTable;
     delete[] Predictor::BTB;
 }
