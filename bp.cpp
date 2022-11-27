@@ -64,10 +64,8 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
         for (int i = 0; i < maxFsm; i++) {
             *(Predictor::predictionTable + i) = fsmState;
         }
-        cout << "all good\n";
-        for(int i = 0; i < btbSize; i++){
-           // Predictor::BTB = new BTB_line;
-        }
+
+
         Predictor::BTB = new BTB_line[btbSize];
     }
     catch (const std::bad_alloc &e) {
@@ -112,13 +110,13 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
     /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
-        //cout << "Printing BTB" << '\n';
+        /* //cout << "Printing BTB" << '\n';
         for (int i = 0; i < Predictor::btbSize; i++) {
             std::bitset<32> x(Predictor::BTB[i].tag);
           //  cout << x << " " << i << '\n';
         }
         std::bitset<32> y(tag);
-        //cout << y << " is the tag" << '\n';
+        //cout << y << " is the tag" << '\n'; */
 
         if (Predictor::BTB[index].tag == tag) {
             unsigned historyIndex = Predictor::globalHistory;
@@ -238,9 +236,6 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     return false;
 }
 
-
-
-/// note: need to take care of XOR based on input (LSB, MSB, etc) - only when fsm is global - isGlobalTable == 1
 
 
 /// still need to take care of global history table and cases where tag is not equal,
@@ -382,6 +377,19 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             unsigned masked_history = ((curr_history << 1) & ((int(pow(2, Predictor::historySize)) - 1)));     // set LSB to 1 or 0
             Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
 
+        }
+
+            /// its a miss
+        else {
+            Predictor::BTB[index].tag = tag;
+            Predictor::BTB[index].target = targetPc;
+            Predictor::BTB[index].history = 0;
+
+            /// set the proper fsm table to default state IF its a miss
+            int maxFsm = (int(pow(2, Predictor::historySize)));
+            for (int i = index; i < index + maxFsm; i++) {
+                *(Predictor::predictionTable + i) = Predictor::fsmState;
+            }
         }
     }
 
