@@ -193,11 +193,23 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 }
 
 
+
 /// still need to take care of global history table and cases where tag is not equal,
 /// meaning local history needs to be deleted
 
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
+    int print_flag = 0;
+    if(print_flag){
+        /// print the fsm
+        for (int i = 0;
+             i < ((int(pow(2, Predictor::historySize) + (!Predictor::isGlobalTable) * Predictor::btbSize))); i++) {
+            std::bitset<32> x(*(Predictor::predictionTable + i));
+            cout << x << '\n';
+        }
+        cout << "--------------------------------\n";
+    }
+
 
     if (taken) {
         if (pred_dst != targetPc) {
@@ -333,10 +345,10 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             //}
             *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))) =
                     taken ? min(3, state + 1) : max(0, state - 1);
-            unsigned curr_history = Predictor::globalHistory;
+            unsigned curr_history = Predictor::BTB[index].history;
             unsigned masked_history = ((curr_history << 1) &
                                        ((int(pow(2, Predictor::historySize)) - 1)));     // set LSB to 1 or 0
-            Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
+            Predictor::BTB[index].history = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
 
         }
 
