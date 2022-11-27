@@ -199,17 +199,6 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
-    int print_flag = 0;
-    if(print_flag){
-        /// print the fsm
-        for (int i = 0;
-             i < ((int(pow(2, Predictor::historySize) + (!Predictor::isGlobalTable) * Predictor::btbSize))); i++) {
-            std::bitset<32> x(*(Predictor::predictionTable + i));
-            cout << x << '\n';
-        }
-        cout << "--------------------------------\n";
-    }
-
 
     if (taken) {
         if (pred_dst != targetPc) {
@@ -226,6 +215,17 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
     index = index & (Predictor::btbSize - 1); // masking the pc
     unsigned tag = pc >> (32 - Predictor::tagSize);
 
+    int print_flag = 0;
+    if(print_flag){
+        /// print the fsm
+        cout << index << '\n';
+        for (int i = 0;
+             i <  ((int(pow(2, Predictor::historySize) + (!Predictor::isGlobalTable) * Predictor::btbSize))); i++) {
+            std::bitset<32> x(*(Predictor::predictionTable + i));
+            cout << x << '\n';
+        }
+        cout << "--------------------------------\n";
+    }
     /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
         /// print the fsm table
@@ -238,11 +238,13 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         /// find the previous fsm
         unsigned historyIndex = Predictor::globalHistory;
         if (Predictor::Shared) { /// need to use XOR to get to the fsm
+            cout << Predictor::Shared <<" \n";
             unsigned XORIndex = pc >> 2;
             if (Predictor::Shared == 2) {
                 XORIndex = XORIndex >> 14;
             }
             XORIndex = XORIndex & ((2 ^ Predictor::historySize) - 1);
+            cout << XORIndex << '\n';
             historyIndex = Predictor::globalHistory ^ XORIndex;
         }
 
