@@ -64,6 +64,10 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
         for (int i = 0; i < maxFsm; i++) {
             *(Predictor::predictionTable + i) = fsmState;
         }
+        cout << "all good\n";
+        for(int i = 0; i < btbSize; i++){
+           // Predictor::BTB = new BTB_line;
+        }
         Predictor::BTB = new BTB_line[btbSize];
     }
     catch (const std::bad_alloc &e) {
@@ -96,7 +100,6 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
 }
 
 
-/// need to take care of case where using share lsb \ mid                               - i think its good
 bool BP_predict(uint32_t pc, uint32_t *dst) {
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
@@ -125,7 +128,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
                 if (Predictor::Shared == 2) {
                     XORIndex = XORIndex >> 14;
                 }
-                XORIndex = XORIndex & ((2 ^ Predictor::historySize) - 1);
+                XORIndex = XORIndex & int(pow(2,Predictor::historySize) - 1);
                 historyIndex = Predictor::globalHistory ^ XORIndex;
             }
 
@@ -159,12 +162,43 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
     /// Local History Global Table (probably doesnt exist)
     else if ((!Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
+        if (Predictor::BTB[index].tag == tag) {
+            unsigned historyIndex = Predictor::BTB[index].history;
+            if (Predictor::Shared) { /// need to use XOR to get to the fsm
+                unsigned XORIndex = pc >> 2;
+                if (Predictor::Shared == 2) {
+                    XORIndex = XORIndex >> 14;
+                }
+                XORIndex = XORIndex & int(pow(2,Predictor::historySize) - 1);
+                historyIndex = Predictor::globalHistory ^ XORIndex;
+            }
 
+            unsigned prediction = *(Predictor::predictionTable + historyIndex);
+            //    cout <<"the pc is " << pc << " and the prediction is " << prediction << "\n";
+            *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
+            return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
+        }
+        else {
+            *dst = (pc + 4);
+            return false;
+        }
     }
 
     /// Local History Local Table
     else if ((!Predictor::isGlobalHist) && (!Predictor::isGlobalTable)) {
+        if (Predictor::BTB[index].tag == tag) {
+            unsigned historyIndex = Predictor::BTB[index].history;
 
+            unsigned prediction = *(Predictor::predictionTable + historyIndex
+                                                                    + index * int(pow(2,Predictor::historySize)));
+            //    cout <<"the pc is " << pc << " and the prediction is " << prediction << "\n";
+            *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
+            return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
+        }
+        else {
+            *dst = (pc + 4);
+            return false;
+        }
     }
 
 
