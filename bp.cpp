@@ -182,14 +182,12 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
             *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
             return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
-        } else {
+        }
+        else {
             *dst = (pc + 4);
             return false;
         }
     }
-
-
-    /// at this point index = correct BTB line
 
     return false;
 }
