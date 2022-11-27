@@ -316,9 +316,6 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             }
 
             int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
-            //if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
-                //Predictor::flush_num = Predictor::flush_num + 1;
-            //}
 
             *(Predictor::predictionTable + historyIndex) = taken ? min(3, state + 1) : max(0, state - 1);
             unsigned curr_history = Predictor::BTB[index].history; // its the same as historyIndex
