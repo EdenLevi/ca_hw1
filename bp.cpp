@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include "bp_api.h"
-#include<cmath>
+#include <cmath>
 #include <bitset>
 
 using namespace std;
@@ -238,13 +238,13 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         /// find the previous fsm
         unsigned historyIndex = Predictor::globalHistory;
         if (Predictor::Shared) { /// need to use XOR to get to the fsm
-            cout << Predictor::Shared <<" \n";
+        //    cout << Predictor::Shared <<" \n";
             unsigned XORIndex = pc >> 2;
             if (Predictor::Shared == 2) {
                 XORIndex = XORIndex >> 14;
             }
-            XORIndex = XORIndex & ((2 ^ Predictor::historySize) - 1);
-            cout << XORIndex << '\n';
+            XORIndex = XORIndex & int((pow(2, Predictor::historySize)) - 1);
+          //  cout << XORIndex << '\n';
             historyIndex = Predictor::globalHistory ^ XORIndex;
         }
 
@@ -311,7 +311,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
                 if (Predictor::Shared == 2) {
                     XORIndex = XORIndex >> 14;
                 }
-                XORIndex = XORIndex & ((2 ^ Predictor::historySize) - 1);
+                XORIndex = XORIndex & int((pow(2, Predictor::historySize) - 1));
                 historyIndex = Predictor::globalHistory ^ XORIndex;
             }
 
