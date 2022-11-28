@@ -57,8 +57,7 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
     Predictor::Shared = Shared;  /// 0 = not using, 1 = using lsb, 2 = using mid
 
     try {
-        Predictor::predictionTable = isGlobalTable ? (new int[int(pow(2, historySize))]) : (new int[int(
-                pow(2, historySize) * btbSize)]);
+        Predictor::predictionTable = isGlobalTable ? (new int[int(pow(2, historySize))]) : (new int[int(pow(2, historySize) * btbSize)]);
         /// init the fsm to the given default state
         int maxFsm = isGlobalTable ? (int(pow(2, historySize))) : (int(pow(2, historySize) * btbSize));
         for (int i = 0; i < maxFsm; i++) {
@@ -73,19 +72,18 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
         return -1;
     }
 
+    /// calculate memory size:
     if (!Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// all local
-        Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30 + Predictor::historySize +
-                                                2 * int(pow(2, Predictor::historySize)));
-    } else if (!Predictor::isGlobalTable &&
-               Predictor::isGlobalHist) { /// local table, global history (ohad says can't happen)
-        Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30 + 2 * int(pow(2, Predictor::historySize))) +
-                          Predictor::historySize;
-    } else if (Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// global table, local history
-        Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30 + Predictor::historySize) +
-                          2 * int(pow(2, Predictor::historySize));
-    } else { /// all global
-        Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30) + 2 * int(pow(2, Predictor::historySize)) +
-                          Predictor::historySize;
+        Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30 + Predictor::historySize + 2 * int(pow(2, Predictor::historySize)));
+    }
+    else if (!Predictor::isGlobalTable && Predictor::isGlobalHist) { /// local table, global history (ohad says can't happen)
+        Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30 + 2 * int(pow(2, Predictor::historySize))) + Predictor::historySize;
+    }
+    else if (Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// global table, local history
+        Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30 + Predictor::historySize) + 2 * int(pow(2, Predictor::historySize));
+    }
+    else { /// all global
+        Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30) + 2 * int(pow(2, Predictor::historySize)) + Predictor::historySize;
     }
     return 1;
 }
@@ -102,10 +100,10 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     /// pc = 00          log2(btb_size)   tagSize
     /// pc = alignment   btb_index        tag
 
-    /// Global History Global Table
+        /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
 
-        if (Predictor::BTB[index].tag == tag) {
+        if (Predictor::BTB[index].tag == (int)tag) {
             unsigned historyIndex = Predictor::globalHistory;
 
             if (Predictor::Shared) { /// need to use XOR to get to the fsm
@@ -129,7 +127,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
         /// Global History Local Table
     else if ((Predictor::isGlobalHist) && (!Predictor::isGlobalTable)) {
-        if (Predictor::BTB[index].tag == tag) {
+        if (Predictor::BTB[index].tag == (int)tag) {
             unsigned historyIndex = Predictor::globalHistory;
 
             unsigned prediction = *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize)));
@@ -143,7 +141,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
         /// Local History Global Table
     else if ((!Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
-        if (Predictor::BTB[index].tag == tag) {
+        if (Predictor::BTB[index].tag == (int)tag) {
             unsigned historyIndex = Predictor::BTB[index].history;
             if (Predictor::Shared) { /// need to use XOR to get to the fsm
                 unsigned XORIndex = pc >> 2;
@@ -165,12 +163,11 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
         /// Local History Local Table
     else if ((!Predictor::isGlobalHist) && (!Predictor::isGlobalTable)) {
-        if (Predictor::BTB[index].tag == tag) {
+        if (Predictor::BTB[index].tag == (int)tag) {
             unsigned historyIndex = Predictor::BTB[index].history;
 
-            unsigned prediction = *(Predictor::predictionTable +
-                                    historyIndex +
-                                    index * int(pow(2, Predictor::historySize)));
+            int fsmIndex = historyIndex + index * int(pow(2, Predictor::historySize));
+            unsigned prediction = *(Predictor::predictionTable + fsmIndex);
 
             *dst = (prediction >= 2) ? (Predictor::BTB[index].target) : (pc + 4);
             return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
@@ -186,6 +183,8 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
+
+    /// take care of flush cases:
     if (taken) {
         if (pred_dst != targetPc) {
             Predictor::flush_num++;
@@ -195,15 +194,16 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             Predictor::flush_num++;
         }
     }
+    Predictor::br_num++; /// count branches
 
-    Predictor::br_num++;   /// added this for counting branches. need to add a miss counter in this func aswell
+    /// calculate index and tag:
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
     // unsigned tag = pc >> (32 - Predictor::tagSize);
     unsigned tag = pc >> (2 + int(log2(Predictor::btbSize)));
     tag = tag & (int(pow(2, Predictor::tagSize)) - 1); /// wonder if true
 
-    int print_flag = 0;
+    /*int print_flag = 0;
     if (print_flag) {
         /// print the fsm
         cout << index << '\n';
@@ -213,10 +213,10 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             cout << x << '\n';
         }
         cout << "--------------------------------\n";
-    }
+    }*/
 
 
-    /// Global History Global Table
+        /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
 
         /// find the previous fsm
@@ -247,7 +247,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         unsigned historyIndex = Predictor::globalHistory;
 
         /// its a hit
-        if (Predictor::BTB[index].tag == tag) {
+        if (Predictor::BTB[index].tag == (int)tag) {
             /// update fsm: if taken decrease by 1 (minimum is 0), else increase by 1 (maximum is 3)
             int state = *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))); /// this is the predicted behaviour
             *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))) = taken ? min(3, state + 1) : max(0, state - 1);
@@ -256,9 +256,14 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             /// its a miss
         else {
             /// clear the fsm table
-            for (int i = (int)index * (int(pow(2, Predictor::historySize))); i < (index + 1) * (int(pow(2, Predictor::historySize))); i++) {
+            for (int i = (int)index * (int(pow(2, Predictor::historySize))); i < (int)((index + 1) * (int(pow(2, Predictor::historySize)))); i++) {
                 *(Predictor::predictionTable + i) = (int)Predictor::fsmState;
             }
+            ///////////////////////////////////////////////
+            /// update fsm table based on current iteration
+            ///////////////////////////////////////////////
+            int state = *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))); /// this is the predicted behaviour
+            *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))) = taken ? min(3, state + 1) : max(0, state - 1);
         }
         unsigned curr_history = Predictor::globalHistory; /// does it need to be outside?
         unsigned masked_history = ((curr_history << 1) & ((int(pow(2, Predictor::historySize)) - 1)));     // set LSB to 1 or 0
@@ -268,7 +273,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         /// Local History Global Table
     else if ((!Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
         /// its a hit
-        if (Predictor::BTB[index].tag == tag) {
+        if (Predictor::BTB[index].tag == (int)tag) {
             unsigned historyIndex = Predictor::BTB[index].history;
 
             if (Predictor::Shared) { /// need to use XOR to get to the fsm
@@ -293,15 +298,40 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             /// its a miss
         else {
 
-            /// clear local history
+            ////////////////////////////////////////////////////////////////////////
+            /////  TESTING IF WE NEED TO UPDATE FSM ON INSERT OF NEW BRANCH    /////
+            ////////////////////////////////////////////////////////////////////////
             Predictor::BTB[index].history = 0;
+
+            unsigned historyIndex = Predictor::BTB[index].history;
+
+            if (Predictor::Shared) { /// need to use XOR to get to the fsm
+                unsigned XORIndex = pc >> 2;
+                if (Predictor::Shared == 2) {
+                    XORIndex = XORIndex >> 14;
+                }
+                XORIndex = XORIndex & int((pow(2, Predictor::historySize) - 1));
+                historyIndex = Predictor::BTB[index].history ^ XORIndex;
+            }
+
+            /// update fsm: if taken decrease by 1 (minimum is 0), else increase by 1 (maximum is 3)
+            int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
+            *(Predictor::predictionTable + historyIndex) = taken ? min(3, state + 1) : max(0, state - 1);
+            Predictor::BTB[index].history = taken;
+            ////////////////////////////////////////////////////////////////////////
+            /////                              END                             /////
+            ////////////////////////////////////////////////////////////////////////
+
+
+            /// clear local history
+            //Predictor::BTB[index].history = 0;
         }
     }
 
         /// Local History Local Table
     else if ((!Predictor::isGlobalHist) && (!Predictor::isGlobalTable)) {
         /// its a hit
-        if (Predictor::BTB[index].tag == tag) {
+        if (Predictor::BTB[index].tag == (int)tag) {
             int fsmIndex = Predictor::BTB[index].history + index * int(pow(2, Predictor::historySize));
             int state = *(Predictor::predictionTable + fsmIndex); /// this is the predicted behaviour
 
@@ -315,14 +345,30 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             /// its a miss
         else {
             /// clear local table
-            for (int i = index * (int(pow(2, Predictor::historySize))); i < (index + 1) * (int(pow(2, Predictor::historySize))); i++) {
+            for (int i = index * (int(pow(2, Predictor::historySize))); i < (int)((index + 1) * (int(pow(2, Predictor::historySize)))); i++) {
                 *(Predictor::predictionTable + i) = (int)Predictor::fsmState;
             }
 
-            /// clear local history
+
+            ////////////////////////////////////////////////////////////////////////
+            /////  TESTING IF WE NEED TO UPDATE FSM ON INSERT OF NEW BRANCH    /////
+            ////////////////////////////////////////////////////////////////////////
             Predictor::BTB[index].history = 0;
+
+            int fsmIndex = Predictor::BTB[index].history + index * int(pow(2, Predictor::historySize));
+            int state = *(Predictor::predictionTable + fsmIndex); /// this is the predicted behaviour
+
+            *(Predictor::predictionTable + fsmIndex) = taken ? min(3, state + 1) : max(0, state - 1);
+            Predictor::BTB[index].history = taken;
+            ////////////////////////////////////////////////////////////////////////
+            /////                              END                             /////
+            ////////////////////////////////////////////////////////////////////////
+
+            /// clear local history
+            //Predictor::BTB[index].history = 0;
         }
     }
+
     /// always update tag and target to the latest branch predicted
     Predictor::BTB[index].tag = (int)tag;
     Predictor::BTB[index].target = (int)targetPc;
