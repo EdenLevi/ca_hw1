@@ -108,6 +108,13 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     /// pc = 00          log2(btb_size)   tagSize
     /// pc = alignment   btb_index        tag
 
+    if(index == 0) {
+        int hi = 5;
+    }
+
+    if(pc == 160774464) {
+        int hi = 5;
+    }
 
     /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
@@ -342,7 +349,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         /// Local History Local Table
     else if ((!Predictor::isGlobalHist) && (!Predictor::isGlobalTable)) {
         /// its a hit
-        if (Predictor::BTB[index].tag == tag) {
+        if (Predictor::BTB[index].tag == tag && Predictor::BTB[index].target == targetPc) {
             unsigned historyIndex = Predictor::BTB[index].history;
             int state = *(Predictor::predictionTable + historyIndex +
                           index * int(pow(2, Predictor::historySize))); /// this is the predicted behaviour
