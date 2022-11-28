@@ -106,6 +106,9 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     /// LSB <-------------------------------> MSB
     /// pc = 00          log2(btb_size)   tagSize
     /// pc = alignment   btb_index        tag
+    if(index == 6) {
+        int hi = 5;
+    }
 
 
     if(index == 6){
@@ -322,7 +325,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
                     XORIndex = XORIndex >> 14;
                 }
                 XORIndex = XORIndex & int((pow(2, Predictor::historySize) - 1));
-                historyIndex = Predictor::globalHistory ^ XORIndex;
+                historyIndex = Predictor::BTB[index].history ^ XORIndex;
             }
 
             int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
@@ -331,7 +334,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             unsigned curr_history = Predictor::BTB[index].history; // its the same as historyIndex
             unsigned masked_history = ((curr_history << 1) &
                                        ((int(pow(2, Predictor::historySize)) - 1)));  // set LSB to 1 or 0
-            Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
+            Predictor::BTB[index].history = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
         }
 
             /// its a miss
