@@ -100,9 +100,9 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
 bool BP_predict(uint32_t pc, uint32_t *dst) {
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
-    unsigned tag = pc >> (30 - Predictor::tagSize); /// shift by 2 + log2(btb_size);
-    //unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
-    //tag = tag & (int(pow(2, Predictor::tagSize)) - 1);
+    //unsigned tag = pc >> (32 - Predictor::tagSize); /// shift by 2 + log2(btb_size);
+    unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
+    tag = tag & (int(pow(2, Predictor::tagSize)) - 1);
 
     /// LSB <-------------------------------> MSB
     /// pc = 00          log2(btb_size)   tagSize
@@ -214,8 +214,9 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
     Predictor::br_num++;   /// added this for counting branches. need to add a miss counter in this func aswell
     unsigned index = pc >> 2;
     index = index & (Predictor::btbSize - 1); // masking the pc
-    unsigned tag = pc >> (30 - Predictor::tagSize);
-    //unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
+    // unsigned tag = pc >> (32 - Predictor::tagSize);
+    unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
+    tag = tag & (int(pow(2, Predictor::tagSize)) - 1);
 
     int print_flag = 0;
     if (print_flag) {
