@@ -108,6 +108,11 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     /// pc = alignment   btb_index        tag
 
 
+    if(index == 6){
+        int b = 0;
+    }
+
+
     /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
 
@@ -149,7 +154,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
         }
     }
 
-        /// Local History Global Table (probably doesnt exist)
+    /// Local History Global Table (probably doesnt exist)
     else if ((!Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
         if (Predictor::BTB[index].tag == tag) {
             unsigned historyIndex = Predictor::BTB[index].history;
@@ -201,7 +206,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
     if (taken) {
-        if (pred_dst != targetPc) {
+        if (pred_dst != targetPc)  {
             Predictor::flush_num++;
         }
     } else {
@@ -281,10 +286,6 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
             *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))) =
                     taken ? min(3, state + 1) : max(0, state - 1);
-            unsigned curr_history = Predictor::globalHistory;
-            unsigned masked_history = ((curr_history << 1) &
-                                       ((int(pow(2, Predictor::historySize)) - 1)));     // set LSB to 1 or 0
-            Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
         }
 
             /// its a miss
@@ -303,6 +304,10 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
                 *(Predictor::predictionTable + i) = Predictor::fsmState;
             }
         }
+        unsigned curr_history = Predictor::globalHistory;
+        unsigned masked_history = ((curr_history << 1) &
+                                   ((int(pow(2, Predictor::historySize)) - 1)));     // set LSB to 1 or 0
+        Predictor::globalHistory = taken ? (masked_history | 1) : (masked_history & -2); // set LSB to 1 or 0
     }
 
         /// Local History Global Table
