@@ -103,6 +103,13 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     //unsigned tag = pc >> (32 - Predictor::tagSize); /// shift by 2 + log2(btb_size)
     unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
 
+    if (index == 13) {
+        int bye = 5;
+    }
+
+    if (pc == 583156) {
+        int hi = 5;
+    }
 
     /// LSB <-------------------------------> MSB
     /// pc = 00          log2(btb_size)   tagSize
@@ -295,8 +302,12 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             Predictor::BTB[index].target = targetPc;
 
             /// set the proper fsm table to default state IF its a miss
-            int maxFsm = (int(pow(2, Predictor::historySize)));
-            for (int i = index; i < index + maxFsm; i++) {
+            //int maxFsm = (int(pow(2, Predictor::historySize)));
+            //for (int i = index; i < index + maxFsm; i++) {
+              //  *(Predictor::predictionTable + i) = Predictor::fsmState;
+            //}
+            for (int i = index * (int(pow(2, Predictor::historySize)));
+                 i < (index + 1) * (int(pow(2, Predictor::historySize))); i++) {
                 *(Predictor::predictionTable + i) = Predictor::fsmState;
             }
         }
@@ -360,8 +371,9 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             Predictor::BTB[index].history = 0;
 
             /// set the proper fsm table to default state IF its a miss
-            int maxFsm = (int(pow(2, Predictor::historySize)));
-            for (int i = index; i < index + maxFsm; i++) {
+            //int maxFsm = (int(pow(2, Predictor::historySize)));
+            for (int i = index * (int(pow(2, Predictor::historySize)));
+                 i < (index + 1) * (int(pow(2, Predictor::historySize))); i++) {
                 *(Predictor::predictionTable + i) = Predictor::fsmState;
             }
         }
