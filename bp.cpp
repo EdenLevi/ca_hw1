@@ -87,7 +87,6 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
         Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30) + 2 * int(pow(2, Predictor::historySize)) +
                           Predictor::historySize;
     }
-    /// need to change 2 ^ x to pow(2,x)
     return 1;
 }
 
