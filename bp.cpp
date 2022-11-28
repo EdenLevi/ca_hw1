@@ -102,18 +102,11 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     index = index & (Predictor::btbSize - 1); // masking the pc
     //unsigned tag = pc >> (32 - Predictor::tagSize); /// shift by 2 + log2(btb_size)
     unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
+    tag = tag & (int(pow(2, Predictor::tagSize)) - 1);
 
     /// LSB <-------------------------------> MSB
     /// pc = 00          log2(btb_size)   tagSize
     /// pc = alignment   btb_index        tag
-    if(index == 6) {
-        int hi = 5;
-    }
-
-
-    if(index == 6){
-        int b = 0;
-    }
 
 
     /// Global History Global Table
@@ -157,7 +150,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
         }
     }
 
-    /// Local History Global Table (probably doesnt exist)
+        /// Local History Global Table (probably doesnt exist)
     else if ((!Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
         if (Predictor::BTB[index].tag == tag) {
             unsigned historyIndex = Predictor::BTB[index].history;
@@ -209,7 +202,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
     if (taken) {
-        if (pred_dst != targetPc)  {
+        if (pred_dst != targetPc) {
             Predictor::flush_num++;
         }
     } else {
@@ -300,7 +293,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             /// set the proper fsm table to default state IF its a miss
             //int maxFsm = (int(pow(2, Predictor::historySize)));
             //for (int i = index; i < index + maxFsm; i++) {
-              //  *(Predictor::predictionTable + i) = Predictor::fsmState;
+            //  *(Predictor::predictionTable + i) = Predictor::fsmState;
             //}
             for (int i = index * (int(pow(2, Predictor::historySize)));
                  i < (index + 1) * (int(pow(2, Predictor::historySize))); i++) {
