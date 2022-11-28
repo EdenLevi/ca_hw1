@@ -103,14 +103,6 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     //unsigned tag = pc >> (32 - Predictor::tagSize); /// shift by 2 + log2(btb_size)
     unsigned tag = pc >> (2 + int(log(Predictor::btbSize)));
 
-    if (index == 13) {
-        int bye = 5;
-    }
-
-    if (pc == 583156) {
-        int hi = 5;
-    }
-
     /// LSB <-------------------------------> MSB
     /// pc = 00          log2(btb_size)   tagSize
     /// pc = alignment   btb_index        tag
