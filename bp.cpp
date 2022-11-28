@@ -73,11 +73,6 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
         return -1;
     }
 
-    /// calc memory needed for the data
-    /// theoretical memory size required for predictor in bits (including valid bits)
-    /// memory_size = entries * (valid_bit + tag_size + target_size + history_Size + 2*2^history_size)
-    /// note: need to take into consideration the type of machine (global/local, etc)
-
     if (!Predictor::isGlobalTable && !Predictor::isGlobalHist) { /// all local
         Predictor::size = Predictor::btbSize * (1 + Predictor::tagSize + 30 + Predictor::historySize +
                                                 2 * int(pow(2, Predictor::historySize)));
@@ -107,14 +102,6 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
     /// LSB <-------------------------------> MSB
     /// pc = 00          log2(btb_size)   tagSize
     /// pc = alignment   btb_index        tag
-
-    if(index == 0) {
-        int hi = 5;
-    }
-
-    if(pc == 160774464) {
-        int hi = 5;
-    }
 
     /// Global History Global Table
     if ((Predictor::isGlobalHist) && (Predictor::isGlobalTable)) {
@@ -201,11 +188,6 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
 }
 
 
-
-/// still need to take care of global history table and cases where tag is not equal,
-/// meaning local history needs to be deleted
-
-
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
     if (taken) {
@@ -264,9 +246,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
 
 
         int state = *(Predictor::predictionTable + historyIndex); /// this is the predicted behaviour
-        //if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
-        //Predictor::flush_num = Predictor::flush_num + 1;
-        //}
+
         *(Predictor::predictionTable + historyIndex) = taken ? min(3, state + 1) : max(0, state - 1);
         unsigned curr_history = Predictor::globalHistory;
         unsigned masked_history = ((curr_history << 1) &
@@ -284,9 +264,6 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         if (Predictor::BTB[index].tag == tag) {
             int state = *(Predictor::predictionTable + historyIndex +
                           index * int(pow(2, Predictor::historySize))); /// this is the predicted behaviour
-            //if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
-            //Predictor::flush_num = Predictor::flush_num + 1;
-            //}
 
             *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))) =
                     taken ? min(3, state + 1) : max(0, state - 1);
@@ -299,10 +276,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             Predictor::BTB[index].target = targetPc;
 
             /// set the proper fsm table to default state IF its a miss
-            //int maxFsm = (int(pow(2, Predictor::historySize)));
-            //for (int i = index; i < index + maxFsm; i++) {
-            //  *(Predictor::predictionTable + i) = Predictor::fsmState;
-            //}
+
             for (int i = index * (int(pow(2, Predictor::historySize)));
                  i < (index + 1) * (int(pow(2, Predictor::historySize))); i++) {
                 *(Predictor::predictionTable + i) = Predictor::fsmState;
@@ -353,9 +327,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
             unsigned historyIndex = Predictor::BTB[index].history;
             int state = *(Predictor::predictionTable + historyIndex +
                           index * int(pow(2, Predictor::historySize))); /// this is the predicted behaviour
-            //if ((taken) ^ (state >= 2)) {  /// there is a flush if taken (actual behaviour) is different then prediction
-            //Predictor::flush_num = Predictor::flush_num + 1;
-            //}
+
             *(Predictor::predictionTable + historyIndex + index * int(pow(2, Predictor::historySize))) =
                     taken ? min(3, state + 1) : max(0, state - 1);
             unsigned curr_history = Predictor::BTB[index].history;
