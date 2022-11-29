@@ -156,10 +156,9 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
         if(tag == 0x56){
             flag = 2;
         }
-        for(int i = 0 ; i < int(pow(2,Predictor::historySize)); i++){
-            cout << i << ": "<< (*(Predictor::predictionTable + i)) <<'\n' ;
-        }
+            cout << "\nindex:" << index << "\ntag:" << tag << "\ncurrent tag:" << Predictor::BTB[index].tag << '\n';  //(*(Predictor::predictionTable + i)) <<'\n' ;
         if (Predictor::BTB[index].tag == (int)tag) {
+            cout << "hit\n";
             unsigned historyIndex = Predictor::BTB[index].history;
             if (Predictor::Shared) { /// need to use XOR to get to the fsm
                 unsigned XORIndex = pc >> 2;
@@ -176,6 +175,8 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
             return (prediction >= 2); /// ST = 3, WT = 2, WNT = 1, SNT = 0
         } else {
       //      cout << "PREDICT its a miss on br_num "<< Predictor::br_num << "\n" ;
+            cout << "miss\n";
+
             *dst = (pc + 4);
             if(pc == 0x56c){
             //    cout << "it returns false\n";
