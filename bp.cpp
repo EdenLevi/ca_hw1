@@ -152,7 +152,7 @@ bool BP_predict(uint32_t pc, uint32_t *dst) {
                     XORIndex = XORIndex >> 14;
                 }
                 XORIndex = XORIndex & int(pow(2, Predictor::historySize) - 1);
-                historyIndex = Predictor::globalHistory ^ XORIndex;
+                historyIndex = Predictor::BTB[index].history ^ XORIndex;
             }
 
             unsigned prediction = *(Predictor::predictionTable + historyIndex);
