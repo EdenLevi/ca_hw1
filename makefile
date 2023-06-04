@@ -1,4 +1,3 @@
-# 046267 Computer Architecture - Spring 22 - HW #1
 # makefile for test environment
 
 all: bp_main
