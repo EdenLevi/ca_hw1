@@ -1,2 +1,2 @@
-# Branch-Predictor-simulator
-make
+# Branch Predictor simulator
+2-Level branch predictor 
