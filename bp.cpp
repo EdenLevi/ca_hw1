@@ -1,5 +1,4 @@
-/* 046267 Computer Architecture - Winter 20/21 - HW #1                  */
-/* This file should hold your implementation of the predictor simulator */
+/* This file holds the implementation of the predictor simulator */
 
 #include <iostream>
 #include "bp_api.h"
