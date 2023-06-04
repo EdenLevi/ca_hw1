@@ -1,4 +1,3 @@
-/* 046267 Computer Architecture - Winter 20/21 - HW #1 */
 /* API for the predictor simulator                     */
 
 #ifndef BP_API_H_
@@ -20,9 +19,6 @@ typedef struct {
 
 class Predictor;
 
-/*************************************************************************/
-/* The following functions should be implemented in your bp.c (or .cpp) */
-/*************************************************************************/
 
 /*
  * BP_init - initialize the predictor
