@@ -1,4 +1,3 @@
-/* 046267 Computer Architecture - Winter 20/21 - HW #1 */
 /* Main program                     	               */
 /* Usage: ./bp_main <trace filename>  	               */
 
